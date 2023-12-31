@@ -138,14 +138,19 @@ JE fin
 
 Makefile就像是一个非常聪明的批处理文件。
 
+Makefile会自动跳过没有必要的命令
+
 ```makefile
+#该规则使用 make.exe 来生成 ipl.bin，类似于在命令行中执行 ../z_tools/make.exe -r ipl.bin
 asm :
-../z_tools/make.exe -r ipl.bin
+../z_tools/make.exe -r ipl.bin 
+#该规则首先调用 make.exe 生成镜像文件 helloos.img，然后将其复制到 QEMU 目录下的 fdimage0.bin，最后通过 -C 选项指定目录切换到 QEMU 目录并执行 make.exe
 run :
 ../z_tools/make.exe img
 copy helloos.img
 ..\z_tools\qemu\fdimage0.bin
 ../z_tools/make.exe -C ../z_tools/qemu
+#该规则首先调用 make.exe 生成 helloos.img，然后使用 imgtol.com 工具将其写入磁盘（假设是软盘）。
 install :
 ../z_tools/make.exe img
 ../z_tools/imgtol.com w a: helloos.img
