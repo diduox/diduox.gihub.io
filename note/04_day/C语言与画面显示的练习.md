@@ -117,6 +117,7 @@ void init_palette(void){
     //声明了一个static数组
     //声明了一个有48字符的char数组
     //汇编语言的DB，在C语言中也有类似的指示方法，那就是在声明时加上static。
+    //因为利用0~255表示颜色 防止255被补码识别为-1 所以采用无符号型
 	static unsigned char table_rgb[16 * 3] = {
 		0x00, 0x00, 0x00, /* 0:黑 */
 		0xff, 0x00, 0x00, /* 1:亮红 */
@@ -140,6 +141,8 @@ void init_palette(void){
 /* C语言中的static char语句只能用于数据，相当
 于汇编中的DB指令 */
 }
+//通过这个函数 使vram指定的0~15数字有了特定的含义 
+//如果不自己定义的话 系统会有一组预定义的调色板
 void set_palette(int start, int end, unsigned char *rgb){
 	int i, eflags;
 	eflags = io_load_eflags(); /* 记录中断许可标志的值*/
@@ -207,6 +210,7 @@ void HariMain(void)
 }
 void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, int x1, int y1){
 	int x, y;
+    //二维坐标画正方形
 	for (y = y0; y <= y1; y++) {
 		for (x = x0; x <= x1; x++)
 			vram[y * xsize + x] = c;
@@ -215,7 +219,78 @@ void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, i
 }
 ```
 
-##### 5.绘画任务栏
+##### 6..汇编语言与中断
+
+```assembly
+; naskfunc
+; TAB=4
+[FORMAT "WCOFF"] ; 制作目标文件的模式
+[INSTRSET "i486p"] ; 使用到486为止的指令
+[BITS 32] ; 制作32位模式用的机器语言
+[FILE "naskfunc.nas"] ; 源程序文件名
+    GLOBAL _io_hlt, _io_cli, _io_sti, io_stihlt	;代表这些函数可以在其他汇编文件，或者链接的程序来使用
+    GLOBAL _io_in8, _io_in16, _io_in32
+    GLOBAL _io_out8, _io_out16, _io_out32
+    GLOBAL _io_load_eflags,_io_store_eflags
+[SECTION .text]
+_io_hlt: ; void io_hlt(void);执行HLT指令
+    HLT
+    RET
+_io_cli: ; void io_cli(void);执行CLI指令，禁止中断
+    CLI
+    RET
+_io_sti: ; void io_sti(void);执行STI指令，允许中断
+    STI
+    RET
+_io_stihlt: ; void io_stihlt(void);先执行STI指令，然后再执行HLT指令，允许中断并使CPU进入停机状态
+    STI
+    HLT
+    RET
+_io_in8: ; int io_in8(int port);从指定端口读入8位的数据
+    MOV EDX,[ESP+4] ; port
+    MOV EAX,0
+    IN AL,DX
+    RET
+_io_in16: ; int io_in16(int port);;从指定端口读入16位的数据
+    MOV EDX,[ESP+4] ; port
+    MOV EAX,0
+    IN AX,DX
+    RET
+_io_in32: ; int io_in32(int port);;从指定端口读入32位的数据
+    MOV EDX,[ESP+4] ; port
+    IN EAX,DX
+    RET
+_io_out8: ; void io_out8(int port, int data);向指定端口写入8位的数据
+    MOV EDX,[ESP+4] ; port
+    MOV AL,[ESP+8] ; data
+    OUT DX,AL
+    RET
+_io_out16: ; void io_out16(int port, int data);向指定端口写入16位的数据
+    MOV EDX,[ESP+4] ; port
+    MOV EAX,[ESP+8] ; data
+    OUT DX,AX
+    RET
+_io_out32: ; void io_out32(int port, int data);向指定端口写入32位的数据
+    MOV EDX,[ESP+4] ; port
+    MOV EAX,[ESP+8] ; data
+    OUT DX,EAX
+    RET
+_io_load_eflags: ; int io_load_eflags(void);将标志寄存器（EFLAGS）的值压栈，并返回压栈前的EFLAGS值。
+    PUSHFD ; 指 PUSH EFLAGS
+    POP EAX
+    RET				;执行RET指令时 EAX当中的值就是返回值
+_io_store_eflags: ; void io_store_eflags(int eflags);将栈中的值弹出到标志寄存器（EFLAGS），实现对标志寄存器的加载。
+    MOV EAX,[ESP+4]
+    PUSH EAX
+    POPFD ; 指 POP EFLAGS
+    RET
+```
+
+再来一张我最喜欢的小插图环节
+
+<img src="D:\30daysos\diduox.gihub.io\note\04_day\屏幕截图 2024-01-08 164329.png" style="zoom:50%;" />
+
+##### 7.绘画任务栏
 
 HariMain
 
